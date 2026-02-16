@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseDatabase _database = FirebaseDatabase.instance;
 
   Future<DocumentSnapshot<Map<String, dynamic>>> getDocument(
     String collection,
@@ -18,5 +20,7 @@ class FirebaseService {
     return _firestore.collection(collection).doc(documentId).update(data);
   }
 
-  // Add more generic methods as needed (set, delete, collection stream, etc.)
+  Stream<DatabaseEvent> getVisitorsStream() {
+    return _database.ref('visitors').onValue;
+  }
 }

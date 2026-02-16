@@ -8,6 +8,8 @@ import '../../modules/hero_editor/hero_editor_binding.dart';
 import '../../modules/hero_editor/hero_editor_screen.dart';
 import '../../modules/skills_editor/skills_editor_binding.dart';
 import '../../modules/skills_editor/skills_editor_screen.dart';
+import '../../modules/visitor_logs/visitor_logs_binding.dart';
+import '../../modules/visitor_logs/visitor_logs_screen.dart';
 
 class AppPages {
   static final pages = [
@@ -30,6 +32,11 @@ class AppPages {
       name: AppRoutes.skillsEditor,
       page: () => const SkillsEditorScreen(),
       binding: SkillsEditorBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.visitorLogs,
+      page: () => const VisitorLogsScreen(),
+      binding: VisitorLogsBinding(),
     ),
   ];
 }
