@@ -1,6 +1,7 @@
-import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../data/models/hero_section_model.dart';
+import '../../data/repositories/profile_repository.dart';
 
 class HeroEditorController extends GetxController {
   final formKey = GlobalKey<FormState>();
@@ -9,44 +10,42 @@ class HeroEditorController extends GetxController {
   final experienceCtrl = TextEditingController();
   final projectsWorkedCtrl = TextEditingController();
   final isLoading = false.obs;
+  final _fieldsVersion = 0.obs;
 
-  // Initial values for change detection
-  String _initialAppRating = '';
-  String _initialAppsPublished = '';
-  String _initialExperience = '';
-  String _initialProjectsWorked = '';
+  final ProfileRepository _repository = Get.find<ProfileRepository>();
+  HeroSectionModel? _currentData;
 
   bool get hasChanges {
-    return appRatingCtrl.text.trim() != _initialAppRating ||
-        appsPublishedCtrl.text.trim() != _initialAppsPublished ||
-        experienceCtrl.text.trim() != _initialExperience ||
-        projectsWorkedCtrl.text.trim() != _initialProjectsWorked;
+    _fieldsVersion.value; // Access to trigger Obx
+    if (_currentData == null) return false;
+    return appRatingCtrl.text.trim() != _currentData!.appRating ||
+        appsPublishedCtrl.text.trim() != _currentData!.appsPublished ||
+        experienceCtrl.text.trim() != _currentData!.experience ||
+        projectsWorkedCtrl.text.trim() != _currentData!.projectsWorked;
   }
 
   @override
   void onInit() {
     super.onInit();
     loadData();
+    appRatingCtrl.addListener(_onFieldChanged);
+    appsPublishedCtrl.addListener(_onFieldChanged);
+    experienceCtrl.addListener(_onFieldChanged);
+    projectsWorkedCtrl.addListener(_onFieldChanged);
   }
+
+  void _onFieldChanged() => _fieldsVersion.value++;
 
   Future<void> loadData() async {
     isLoading.value = true;
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('ProfileDetails')
-          .doc('MyDetail')
-          .get();
-
-      if (doc.exists) {
-        final data = doc.data()?['heroSection'] as Map<String, dynamic>?;
-        if (data != null) {
-          appRatingCtrl.text = _initialAppRating = data['appRating'] ?? '';
-          appsPublishedCtrl.text = _initialAppsPublished =
-              data['appsPublished'] ?? '';
-          experienceCtrl.text = _initialExperience = data['experience'] ?? '';
-          projectsWorkedCtrl.text = _initialProjectsWorked =
-              data['projectsWorked'] ?? '';
-        }
+      final data = await _repository.getHeroSection();
+      if (data != null) {
+        _currentData = data;
+        appRatingCtrl.text = data.appRating;
+        appsPublishedCtrl.text = data.appsPublished;
+        experienceCtrl.text = data.experience;
+        projectsWorkedCtrl.text = data.projectsWorked;
       }
     } catch (e) {
       Get.snackbar(
@@ -64,23 +63,15 @@ class HeroEditorController extends GetxController {
 
     isLoading.value = true;
     try {
-      await FirebaseFirestore.instance
-          .collection('ProfileDetails')
-          .doc('MyDetail')
-          .update({
-            'heroSection': {
-              'appRating': appRatingCtrl.text.trim(),
-              'appsPublished': appsPublishedCtrl.text.trim(),
-              'experience': experienceCtrl.text.trim(),
-              'projectsWorked': projectsWorkedCtrl.text.trim(),
-            },
-          });
+      final newData = HeroSectionModel(
+        appRating: appRatingCtrl.text.trim(),
+        appsPublished: appsPublishedCtrl.text.trim(),
+        experience: experienceCtrl.text.trim(),
+        projectsWorked: projectsWorkedCtrl.text.trim(),
+      );
 
-      // Update initial values after successful save
-      _initialAppRating = appRatingCtrl.text.trim();
-      _initialAppsPublished = appsPublishedCtrl.text.trim();
-      _initialExperience = experienceCtrl.text.trim();
-      _initialProjectsWorked = projectsWorkedCtrl.text.trim();
+      await _repository.updateHeroSection(newData);
+      await loadData();
 
       Get.snackbar(
         'Success',

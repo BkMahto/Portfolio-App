@@ -1,16 +1,20 @@
-
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../data/models/skill_model.dart';
+import '../../data/repositories/profile_repository.dart';
 
 class SkillsEditorController extends GetxController {
-  final skills = <Map<String, dynamic>>[].obs;
+  final skills = <SkillModel>[].obs;
   final isLoading = false.obs;
-  
+
+  final ProfileRepository _repository = Get.find<ProfileRepository>();
+
   // Track initial state for change detection
-  final _initialSkillsJson = ''.obs;
-  
+  final _initialSkills = <SkillModel>[].obs;
+
   bool get hasChanges {
-    return _initialSkillsJson.value != skills.toList().toString();
+    if (_initialSkills.isEmpty && skills.isEmpty) return false;
+    return !listEquals(_initialSkills, skills);
   }
 
   static const List<String> categories = ['core', 'frameworks', 'tools'];
@@ -27,7 +31,7 @@ class SkillsEditorController extends GetxController {
     // Get the indices of skills in this category
     final categoryIndices = <int>[];
     for (int i = 0; i < skills.length; i++) {
-      if (skills[i]['category'] == category) {
+      if (skills[i].category == category) {
         categoryIndices.add(i);
       }
     }
@@ -53,19 +57,9 @@ class SkillsEditorController extends GetxController {
   Future<void> loadData() async {
     isLoading.value = true;
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('ProfileDetails')
-          .doc('MyDetail')
-          .get();
-
-      if (doc.exists) {
-        final data = doc.data()?['skillsSection'] as List<dynamic>?;
-        if (data != null) {
-          final list = List<Map<String, dynamic>>.from(data);
-          skills.value = list;
-          _initialSkillsJson.value = list.toString();
-        }
-      }
+      final data = await _repository.getSkills();
+      skills.assignAll(data);
+      _initialSkills.assignAll(data);
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -82,13 +76,9 @@ class SkillsEditorController extends GetxController {
       isLoading.value = true;
     }
     try {
-      await FirebaseFirestore.instance
-          .collection('ProfileDetails')
-          .doc('MyDetail')
-          .set({'skillsSection': skills.toList()}, SetOptions(merge: true));
-      
-      _initialSkillsJson.value = skills.toList().toString();
-      
+      await _repository.updateSkills(skills);
+      await loadData();
+
       Get.snackbar(
         'Success',
         'Skills updated successfully!',
@@ -108,16 +98,15 @@ class SkillsEditorController extends GetxController {
   Future<void> seedSkills() async {
     isLoading.value = true;
     try {
-      // Use the default skills list
-      final defaultSkills = _defaultSkills;
+      final defaultSkills = _defaultSkills
+          .map((e) => SkillModel.fromMap(e))
+          .toList();
 
-      await FirebaseFirestore.instance
-          .collection('ProfileDetails')
-          .doc('MyDetail')
-          .set({'skillsSection': defaultSkills}, SetOptions(merge: true));
+      await _repository.updateSkills(defaultSkills);
 
       // Update local state
-      skills.value = defaultSkills;
+      skills.assignAll(defaultSkills);
+      _initialSkills.assignAll(defaultSkills);
 
       Get.snackbar(
         'Success',
@@ -135,11 +124,11 @@ class SkillsEditorController extends GetxController {
     }
   }
 
-  void addSkill(Map<String, dynamic> skill) {
+  void addSkill(SkillModel skill) {
     skills.add(skill);
   }
 
-  void updateSkill(int index, Map<String, dynamic> skill) {
+  void updateSkill(int index, SkillModel skill) {
     skills[index] = skill;
     skills.refresh();
   }
